@@ -1,26 +1,31 @@
 import Data.Char (digitToInt)
-import Data.Maybe (fromMaybe)
 
-build input = fst $ foldl fn ([], True, 0) input
+build input = fst $ foldl fn ([], True, 1) input
   where
     fst (res, _, _) = res
     fn (res, isFile, id) n =
       if isFile then
-        (res ++ replicate (digitToInt n) (Just id), False, id + 1)
+        (res ++ [[id, (digitToInt n)]], False, id + 1)
       else
-        (res ++ replicate (digitToInt n) Nothing, True, id)
+        (res ++ [[0, (digitToInt n)]], True, id)
 
 compact [] = []
-compact [n] = [n]
-compact (Just n:ns) = Just n : compact ns
-compact (Nothing:ns) =
-  case last ns of
-      Just n -> Just n : compact rest
-      Nothing -> compact (Nothing : rest)
-  where rest = init ns
+compact n =
+  let [id, len] = last n
+  in if id == 0
+     then compact (init n) ++ [[id, len]]
+     else let (skip, found) = span (\ [i, l] -> i > 0 || l < len) (init n)
+          in if (null found)
+             then compact (init n) ++ [[id, len]]
+             else let ([_, nlen] : rest) = found
+                  in compact (skip ++ ([id, len] : [0, nlen - len] : rest)) ++ [[0, len]]
 
-checksum cs = sum $ zipWith (*) [0..] $ map (fromMaybe 0) cs
+checksum _ [] = 0
+checksum pos ([id, len]:ns)
+  | id == 0 || len == 0 = checksum (pos + len) ns
+  | otherwise = (id - 1) * pos + checksum (pos + 1) ([id, len - 1] : ns)
+
 
 main = do
   text <- readFile "day9.txt"
-  print $ checksum $ compact $ build $ init text
+  print $ checksum 0 $ compact $ build $ init text
